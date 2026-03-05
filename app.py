@@ -144,7 +144,7 @@ def get_aqi_forecast():
     lat, lon = coords_map.get(city, (33.34, 44.40))
 
     aq_h, w_h, cur_w = fetch_location_data(lat, lon)
-    if not aq_h or not w_h:
+    if aq_h is None or w_h is None:
         return jsonify({"error": True, "message": "فشل جلب البيانات"})
 
     current_idx = 24 
@@ -167,8 +167,8 @@ def get_aqi_forecast():
         "status": "success",
         "city": city,
         "current_weather": {
-            "temp": cur_w['temperature'],
-            "wind": cur_w['windspeed'],
+            "temp": cur_w.get('temperature') if cur_w else None,
+            "wind": cur_w.get('windspeed') if cur_w else None,
             "humidity": w_h['relative_humidity_2m'][current_idx], 
             "pollutants": pollutants
         },
@@ -204,4 +204,5 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
