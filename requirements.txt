@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+tensorflow
+scikit-learn
+matplotlib
+time
+os
+json
+joblib

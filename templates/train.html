@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مركز التحكم بالذكاء الاصطناعي - نظام التدريب الديناميكي</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --navy: #0f172a; --blue: #2563eb; --border: #e2e8f0; --bg: #f8fafc; --green: #10b981; --red: #ef4444; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f7f9; margin: 0; padding: 20px; color: var(--navy); }
+        .container { max-width: 1200px; margin: auto; }
+
+        /* تصميم العنوان الجديد */
+        .page-header-container {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .main-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--navy);
+            margin: 0;
+            position: relative;
+        }
+        .main-title::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            right: 0;
+            width: 80px;
+            height: 4px;
+            background: var(--blue);
+            border-radius: 2px;
+        }
+
+        /* --- بطاقات المحافظات --- */
+        .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .city-card { 
+            background: #fff; padding: 25px 15px; border-radius: 12px; border: 1px solid var(--border);
+            text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: all 0.4s ease;
+        }
+        .status-header { font-size: 24px; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 15px; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+        .status-text { font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+
+        .city-card.ready { border-bottom: 5px solid var(--green); }
+        .city-card.ready .dot { background: var(--green); box-shadow: 0 0 12px var(--green); }
+        .city-card.ready .status-text { color: #15803d; }
+
+        .city-card.needs-train { border-bottom: 5px solid var(--red); }
+        .city-card.needs-train .dot { background: var(--red); box-shadow: 0 0 12px var(--red); }
+
+        /* --- لوحة التحكم --- */
+        .main-layout { display: grid; grid-template-columns: 2.2fr 1fr; gap: 20px; }
+        .card { background: #fff; padding: 25px; border-radius: 15px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        
+        .stability-card { background: var(--navy); color: white; padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
+        .count-display { font-size: 75px; font-weight: 900; color: #38bdf8; line-height: 1; }
+        #epoch_timer { font-size: 22px; color: #fbbf24; font-weight: bold; margin-top: 15px; }
+
+        .config-item { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #64748b; font-size: 13px; }
+        select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; }
+        
+        .custom-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+        .custom-table th { background: #f8fafc; padding: 12px; border-bottom: 2px solid #e2e8f0; color: #64748b; text-align: center; }
+        .custom-table td { padding: 12px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+
+        button { width: 100%; padding: 16px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-size: 15px; transition: 0.3s; }
+        #btn_start { background: var(--blue); color: white; margin-bottom: 10px; }
+        #btn_stop { background: var(--red); color: white; display: none; margin-top: 5px; }
+        
+        .btn-global-predict { 
+            background: var(--green); color: white; text-decoration: none; 
+            display: none; text-align: center; padding: 18px; border-radius: 12px; 
+            font-weight: bold; font-size: 16px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="page-header-container">
+        <h1 class="main-title">منظومة التدريب الذكي للمحافظات</h1>
+        <a href="/prediction_page" id="btn_global_predict" class="btn-global-predict">⚡ الانتقال لشاشة التنبؤ</a>
+    </div>
+
+    <div class="status-grid">
+        <div id="card_Baghdad" class="city-card">
+            <div class="status-header"><span class="dot"></span> بغداد</div>
+            <div id="txt_Baghdad" class="status-text">جاري الفحص...</div>
+        </div>
+        <div id="card_Basra" class="city-card">
+            <div class="status-header"><span class="dot"></span> البصرة</div>
+            <div id="txt_Basra" class="status-text">جاري الفحص...</div>
+        </div>
+        <div id="card_Najaf" class="city-card">
+            <div class="status-header"><span class="dot"></span> النجف</div>
+            <div id="txt_Najaf" class="status-text">جاري الفحص...</div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="card">
+            <div style="height: 350px;"><canvas id="trainChart"></canvas></div>
+            <div style="height: 330px; overflow-y: auto; margin-top: 20px;">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Accuracy (R²)</th>
+                            <th>MAE</th>
+                            <th>RMSE</th>
+                            <th>Epoch</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metricsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div>
+            <div class="stability-card">
+                <h3 style="font-size: 12px; opacity: 0.7;">STABILITY COUNTER</h3>
+                <div id="stab_count" class="count-display">0 / 10</div>
+                <div id="epoch_timer">زمن تدريب النموذج: 0s</div>
+            </div>
+
+            <div class="card">
+                <div class="config-item">
+                    <label>تحديد المحافظة للتدريب</label>
+                    <select id="citySelect" onchange="onCityChange()">
+                        <option value="Baghdad">Baghdad</option>
+                        <option value="Basra">Basra</option>
+                        <option value="Najaf">Najaf</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label>تاريخ البدء (Data Picker)</label>
+                    <input type="date" id="startDate">
+                </div>
+                <button id="btn_start">ابدأ تدريب المحرك</button>
+                <button id="btn_stop">إيقاف إجباري للمحرك</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function onCityChange() {
+        updateDateConstraints();
+        resetChart();
+    }
+
+    function updateDateConstraints() {
+        const city = document.getElementById('citySelect').value;
+        const dateInput = document.getElementById('startDate');
+        dateInput.max = "2026-02-23";
+
+        if (city === "Basra") { dateInput.min = "2022-01-01"; dateInput.value = "2022-01-01"; }
+        else if (city === "Baghdad") { dateInput.min = "2015-01-01"; dateInput.value = "2015-01-01"; }
+        else if (city === "Najaf") { dateInput.min = "2016-01-01"; dateInput.value = "2016-01-01"; }
+    }
+
+    function resetChart() {
+        trainChart.data.datasets[0].data = [];
+        trainChart.data.datasets[1].data = [];
+        trainChart.update();
+        document.getElementById('metricsBody').innerHTML = "";
+        document.getElementById('stab_count').innerText = "0 / 10";
+        stabilityManualCounter = 0;
+    }
+
+    updateDateConstraints();
+
+    const ctx = document.getElementById('trainChart').getContext('2d');
+    const trainChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: 50}, (_, i) => i),
+            datasets: [
+                { label: 'الحقيقي', data: [], borderColor: '#94a3b8', borderWidth: 2, pointRadius: 4 },
+                { label: 'المتوقع', data: [], borderColor: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.1)', fill: true, pointRadius: 4 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    let controller;
+    let timerInt;
+    let sec = 0;
+    let stabilityManualCounter = 0;
+
+    async function checkModelsStatus() {
+        try {
+            const res = await fetch('/check_models');
+            const data = await res.json();
+            let allReady = true;
+            ['Baghdad', 'Basra', 'Najaf'].forEach(c => {
+                const card = document.getElementById(`card_${c}`);
+                const txt = document.getElementById(`txt_${c}`);
+                if(data.models[c]) { card.className = "city-card ready"; txt.innerHTML = '✅ Model Ready'; }
+                else { card.className = "city-card needs-train"; txt.innerHTML = '⚠️ Needs Training'; allReady = false; }
+            });
+            document.getElementById('btn_global_predict').style.display = allReady ? "block" : "none";
+        } catch(e) {}
+    }
+
+    document.getElementById('btn_start').onclick = async function() {
+        const city = document.getElementById('citySelect').value;
+        const date = document.getElementById('startDate').value;
+        const btnStart = document.getElementById('btn_start');
+        const btnStop = document.getElementById('btn_stop');
+        
+        btnStart.style.backgroundColor = "var(--red)";
+        btnStart.innerText = "جاري التدريب الآن...";
+        btnStart.disabled = true;
+        btnStop.style.display = "block";
+
+        stabilityManualCounter = 0;
+        clearInterval(timerInt);
+        sec = 0;
+        timerInt = setInterval(() => { 
+            sec++; 
+            document.getElementById('epoch_timer').innerText = "زمن تدريب النموذج: " + sec + "s"; 
+        }, 1000);
+
+        controller = new AbortController();
+        try {
+            const response = await fetch(`/train?city=${city}&date=${date}`, { signal: controller.signal });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const lines = decoder.decode(value).split('\n').filter(l => l.trim());
+
+                lines.forEach(line => {
+                    try {
+                        const data = JSON.parse(line);
+                        let currentAccuracy = data.r2 * 100;
+                        
+                        if (currentAccuracy >= 90) {
+                            if(stabilityManualCounter < 10) stabilityManualCounter++;
+                        } else {
+                            stabilityManualCounter = 0;
+                        }
+                    
+                        document.getElementById('stab_count').innerText = `${stabilityManualCounter} / 10`;
+                        trainChart.data.datasets[0].data = data.actual;
+                        trainChart.data.datasets[1].data = data.predicted;
+                        trainChart.update('none');
+
+                        const row = `<tr>
+                            <td>${data.epoch_time}s</td>
+                            <td style="color:var(--green); font-weight:bold;">${currentAccuracy.toFixed(2)}%</td>
+                            <td>${data.mae.toFixed(4)}</td>
+                            <td>${data.rmse.toFixed(4)}</td>
+                            <td>${data.epoch}</td>
+                        </tr>`;
+                        document.getElementById('metricsBody').insertAdjacentHTML('afterbegin', row);
+
+                        if(data.status === "stabilized") {
+                            alert("تم انتهاء التدريب وحفظ أفضل نسخة من النموذج");
+                            finishTraining();
+                        }
+                    } catch(e) {}
+                });
+            }
+        } catch(e) { if(e.name !== 'AbortError') finishTraining(); }
+    };
+
+    function finishTraining() {
+        const btnStart = document.getElementById('btn_start');
+        const btnStop = document.getElementById('btn_stop');
+        btnStart.style.backgroundColor = "var(--blue)";
+        btnStart.innerText = "ابدأ تدريب المحرك";
+        btnStart.disabled = false;
+        btnStop.style.display = "none";
+        clearInterval(timerInt);
+        checkModelsStatus();
+    }
+
+    document.getElementById('btn_stop').onclick = () => { 
+        if(controller) {
+            controller.abort();
+            alert("تم إيقاف التدريب وحفظ أفضل نسخة من النموذج");
+        }
+        finishTraining();
+    };
+    
+    checkModelsStatus();
+</script>
+</body>
+</html>
