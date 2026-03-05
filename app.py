@@ -83,15 +83,27 @@ def get_ai_advice(aqi, city):
 def fetch_location_data(lat, lon):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
+
         aq_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&past_days=1&forecast_days=2"
-        aq_res = requests.get(aq_url).json()
 
         w_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&current_weather=true&past_days=1&forecast_days=2"
-        w_res = requests.get(w_url).json()
-        
-        return aq_res.get('hourly'), w_res.get('hourly'), w_res.get('current_weather')
+
+        aq_res = requests.get(aq_url, headers=headers, timeout=15)
+        w_res = requests.get(w_url, headers=headers, timeout=15)
+
+        aq_json = aq_res.json()
+        w_json = w_res.json()
+
+        print("AQ JSON:", aq_json)
+        print("Weather JSON:", w_json)
+
+        if "hourly" not in aq_json or "hourly" not in w_json:
+            return None, None, None
+
+        return aq_json["hourly"], w_json["hourly"], w_json.get("current_weather")
+
     except Exception as e:
-        print(f"❌ خطأ API: {e}")
+        print("API ERROR:", e)
         return None, None, None
 
 def run_prediction(city, aq, w, idx):
@@ -142,7 +154,7 @@ def get_aqi_forecast():
     city = request.args.get('city', "Baghdad")
     coords_map = {"Baghdad": (33.34, 44.40), "Basra": (30.50, 47.81), "Najaf": (32.02, 44.33)}
     lat, lon = coords_map.get(city, (33.34, 44.40))
-
+    
     aq_h, w_h, cur_w = fetch_location_data(lat, lon)
     if aq_h is None or w_h is None:
         return jsonify({"error": True, "message": "فشل جلب البيانات"})
@@ -204,5 +216,6 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
 
