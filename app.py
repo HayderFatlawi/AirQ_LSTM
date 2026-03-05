@@ -3,6 +3,9 @@ import requests
 import joblib
 import numpy as np
 import json
+import time
+api_cache = {}
+cache_time = 600  # 10 minutes
 from flask import Flask, Response, render_template, jsonify, request, redirect, url_for
 from tensorflow.keras.models import load_model
 
@@ -81,30 +84,28 @@ def get_ai_advice(aqi, city):
 # 3. وظائف جلب البيانات والتنبؤ
 # =========================================================
 def fetch_location_data(lat, lon):
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
 
-        aq_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&past_days=1&forecast_days=2"
+    key = f"{lat}_{lon}"
+    now = time.time()
 
-        w_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&current_weather=true&past_days=1&forecast_days=2"
+    if key in api_cache:
+        data, timestamp = api_cache[key]
+        if now - timestamp < cache_time:
+            return data
 
-        aq_res = requests.get(aq_url, headers=headers, timeout=15)
-        w_res = requests.get(w_url, headers=headers, timeout=15)
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-        aq_json = aq_res.json()
-        w_json = w_res.json()
+    aq_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&past_days=1&forecast_days=2"
 
-        print("AQ JSON:", aq_json)
-        print("Weather JSON:", w_json)
+    w_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&current_weather=true&past_days=1&forecast_days=2"
 
-        if "hourly" not in aq_json or "hourly" not in w_json:
-            return None, None, None
+    aq_res = requests.get(aq_url, headers=headers).json()
+    w_res = requests.get(w_url, headers=headers).json()
 
-        return aq_json["hourly"], w_json["hourly"], w_json.get("current_weather")
+    result = (aq_res.get('hourly'), w_res.get('hourly'), w_res.get('current_weather'))
+    api_cache[key] = (result, now)
 
-    except Exception as e:
-        print("API ERROR:", e)
-        return None, None, None
+    return result
 
 def run_prediction(city, aq, w, idx):
     assets = get_city_assets(city)
@@ -216,6 +217,7 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
