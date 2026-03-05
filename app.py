@@ -82,6 +82,7 @@ def get_ai_advice(aqi, city):
 # =========================================================
 def fetch_location_data(lat, lon):
     try:
+        headers = {"User-Agent": "Mozilla/5.0"}
         aq_url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&past_days=1&forecast_days=2"
         aq_res = requests.get(aq_url).json()
 
@@ -203,3 +204,4 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
