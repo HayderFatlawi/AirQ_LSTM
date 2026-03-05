@@ -199,4 +199,5 @@ def check_models():
     return jsonify({"models": status, "all_ready": all_ready})
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+
+    app.run(debug=False, use_reloader=False, port=5000)
